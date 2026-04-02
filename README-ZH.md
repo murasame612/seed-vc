@@ -131,13 +131,13 @@ python real-time-gui.py --checkpoint-path <path-to-checkpoint> --config-path <pa
 ```bash
 python train.py \
 --config ./configs/presets/config_dit_mel_seed_uvit_xlsr_tiny.yml \
---dataset-dir examples/reference/azuma \
---run-name test-anima \
---batch-size 2 \
+--dataset-dir examples/xizige \
+--run-name xizige \
+--batch-size 8 \
 --max-steps 1000 \
 --max-epochs 1000 \
 --save-every 500 \
---num-workers 0
+--num-workers 4
 ```
 where:
 - `config` 模型配置文件路径，选择上面之一进行微调，或者创建自己的配置文件从头开始训练
