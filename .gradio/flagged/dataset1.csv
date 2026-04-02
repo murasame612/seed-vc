@@ -1,0 +1,2 @@
+Source Audio / 源音频,Reference Audio / 参考音频,Diffusion Steps / 扩散步数,Length Adjust / 长度调整,Inference CFG Rate,Stream Output Audio / 流式输出,Full Output Audio / 完整输出,timestamp
+.gradio/flagged/Source Audio  源音频/e33ac1be2c5b272ff76e/yae_0.wav,.gradio/flagged/Reference Audio  参考音频/5b44f60f56d3a32848f9/dingzhen_0.wav,25,1,0.7,,,2026-04-01 21:41:24.496640

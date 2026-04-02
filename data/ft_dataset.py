@@ -25,6 +25,12 @@ class FT_Dataset(torch.utils.data.Dataset):
     ):
         self.data_path = data_path
         self.data = []
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(f"Dataset path does not exist: {data_path}")
+        if not os.path.isdir(data_path):
+            raise ValueError(
+                f"Expected --dataset-dir to be a directory containing audio files, got: {data_path}"
+            )
         for root, _, files in os.walk(data_path):
             for file in files:
                 if file.endswith((".wav", ".mp3", ".flac", ".ogg", ".m4a", ".opus")):
@@ -42,7 +48,10 @@ class FT_Dataset(torch.utils.data.Dataset):
             "center": False
         }
 
-        assert len(self.data) != 0
+        if len(self.data) == 0:
+            raise ValueError(
+                f"No supported audio files were found under dataset directory: {data_path}"
+            )
         while len(self.data) < batch_size:
             self.data += self.data
 

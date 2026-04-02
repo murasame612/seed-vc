@@ -129,14 +129,14 @@ python real-time-gui.py --checkpoint-path <path-to-checkpoint> --config-path <pa
         - `./configs/presets/config_dit_mel_seed_uvit_whisper_base_f0_44k.yml` 用于歌声转换
 3. 运行以下命令开始训练：
 ```bash
-python train.py 
---config <path-to-config> 
---dataset-dir <path-to-data>
---run-name <run-name>
---batch-size 2
---max-steps 1000
---max-epochs 1000
---save-every 500
+python train.py \
+--config ./configs/presets/config_dit_mel_seed_uvit_xlsr_tiny.yml \
+--dataset-dir examples/reference/azuma \
+--run-name test-anima \
+--batch-size 2 \
+--max-steps 1000 \
+--max-epochs 1000 \
+--save-every 500 \
 --num-workers 0
 ```
 where:

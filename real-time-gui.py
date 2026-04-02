@@ -402,6 +402,11 @@ if __name__ == "__main__":
 
         def load(self):
             try:
+                if not self.hostapis or not self.input_devices or not self.output_devices:
+                    raise RuntimeError(
+                        "No audio input/output devices were detected by sounddevice. "
+                        "The real-time GUI must run on a machine with accessible audio hardware."
+                    )
                 os.makedirs("configs/inuse", exist_ok=True)
                 if not os.path.exists("configs/inuse/config.json"):
                     shutil.copy("configs/config.json", "configs/inuse/config.json")
@@ -432,6 +437,11 @@ if __name__ == "__main__":
                             self.output_devices_indices.index(sd.default.device[1])
                         ]
             except:
+                if not self.hostapis or not self.input_devices or not self.output_devices:
+                    raise RuntimeError(
+                        "No audio input/output devices were detected by sounddevice. "
+                        "The real-time GUI must run on a machine with accessible audio hardware."
+                    )
                 with open("configs/inuse/config.json", "w") as j:
                     data = {
                         "sg_hostapi": self.hostapis[0],
@@ -1120,6 +1130,13 @@ if __name__ == "__main__":
             sd._initialize()
             devices = sd.query_devices()
             hostapis = sd.query_hostapis()
+            if not devices or not hostapis:
+                self.hostapis = []
+                self.input_devices = []
+                self.output_devices = []
+                self.input_devices_indices = []
+                self.output_devices_indices = []
+                return
             for hostapi in hostapis:
                 for device_idx in hostapi["devices"]:
                     devices[device_idx]["hostapi_name"] = hostapi["name"]
