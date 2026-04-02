@@ -376,7 +376,8 @@ if __name__ == "__main__":
             self.I_noise_reduce: bool = False
             self.O_noise_reduce: bool = False
             self.inference_cfg_rate: float = 0.7
-            self.sg_hostapi: str = ""
+            self.sg_input_hostapi: str = ""
+            self.sg_output_hostapi: str = ""
             self.wasapi_exclusive: bool = False
             self.sg_input_device: str = ""
             self.sg_output_device: str = ""
@@ -393,6 +394,7 @@ if __name__ == "__main__":
             self.output_devices = None
             self.input_devices_indices = None
             self.output_devices_indices = None
+            self.devices = None
             self.stream = None
             self.model_set = load_models(args)
             from funasr import AutoModel
@@ -414,28 +416,40 @@ if __name__ == "__main__":
                     data = json.load(j)
                     data["sr_model"] = data["sr_type"] == "sr_model"
                     data["sr_device"] = data["sr_type"] == "sr_device"
-                    if data["sg_hostapi"] in self.hostapis:
-                        self.update_devices(hostapi_name=data["sg_hostapi"])
-                        if (
-                            data["sg_input_device"] not in self.input_devices
-                            or data["sg_output_device"] not in self.output_devices
-                        ):
-                            self.update_devices()
-                            data["sg_hostapi"] = self.hostapis[0]
+                    legacy_hostapi = data.get("sg_hostapi", "")
+                    data["sg_input_hostapi"] = data.get(
+                        "sg_input_hostapi", legacy_hostapi
+                    )
+                    data["sg_output_hostapi"] = data.get(
+                        "sg_output_hostapi", legacy_hostapi
+                    )
+
+                    if data["sg_input_hostapi"] not in self.hostapis:
+                        data["sg_input_hostapi"] = self.hostapis[0]
+                    if data["sg_output_hostapi"] not in self.hostapis:
+                        data["sg_output_hostapi"] = self.hostapis[0]
+
+                    self.update_devices(
+                        input_hostapi_name=data["sg_input_hostapi"],
+                        output_hostapi_name=data["sg_output_hostapi"],
+                    )
+
+                    if data["sg_input_device"] not in self.input_devices:
+                        input_index = sd.default.device[0]
+                        if input_index in self.input_devices_indices:
                             data["sg_input_device"] = self.input_devices[
-                                self.input_devices_indices.index(sd.default.device[0])
+                                self.input_devices_indices.index(input_index)
                             ]
+                        else:
+                            data["sg_input_device"] = self.input_devices[0]
+                    if data["sg_output_device"] not in self.output_devices:
+                        output_index = sd.default.device[1]
+                        if output_index in self.output_devices_indices:
                             data["sg_output_device"] = self.output_devices[
-                                self.output_devices_indices.index(sd.default.device[1])
+                                self.output_devices_indices.index(output_index)
                             ]
-                    else:
-                        data["sg_hostapi"] = self.hostapis[0]
-                        data["sg_input_device"] = self.input_devices[
-                            self.input_devices_indices.index(sd.default.device[0])
-                        ]
-                        data["sg_output_device"] = self.output_devices[
-                            self.output_devices_indices.index(sd.default.device[1])
-                        ]
+                        else:
+                            data["sg_output_device"] = self.output_devices[0]
             except:
                 if not self.hostapis or not self.input_devices or not self.output_devices:
                     raise RuntimeError(
@@ -444,7 +458,8 @@ if __name__ == "__main__":
                     )
                 with open("configs/inuse/config.json", "w") as j:
                     data = {
-                        "sg_hostapi": self.hostapis[0],
+                        "sg_input_hostapi": self.hostapis[0],
+                        "sg_output_hostapi": self.hostapis[0],
                         "sg_wasapi_exclusive": False,
                         "sg_input_device": self.input_devices[
                             self.input_devices_indices.index(sd.default.device[0])
@@ -502,11 +517,19 @@ if __name__ == "__main__":
                     sg.Frame(
                         layout=[
                             [
-                                sg.Text("Device type"),
+                                sg.Text("Input HostAPI"),
                                 sg.Combo(
                                     self.hostapis,
-                                    key="sg_hostapi",
-                                    default_value=data.get("sg_hostapi", ""),
+                                    key="sg_input_hostapi",
+                                    default_value=data.get("sg_input_hostapi", ""),
+                                    enable_events=True,
+                                    size=(20, 1),
+                                ),
+                                sg.Text("Output HostAPI"),
+                                sg.Combo(
+                                    self.hostapis,
+                                    key="sg_output_hostapi",
+                                    default_value=data.get("sg_output_hostapi", ""),
                                     enable_events=True,
                                     size=(20, 1),
                                 ),
@@ -536,6 +559,11 @@ if __name__ == "__main__":
                                     enable_events=True,
                                     size=(45, 1),
                                 ),
+                            ],
+                            [
+                                sg.Text(
+                                    "Tip: choose a virtual audio cable as Output Device to feed apps as a virtual microphone."
+                                )
                             ],
                             [
                                 sg.Button("Reload devices", key="reload_devices"),
@@ -704,13 +732,25 @@ if __name__ == "__main__":
                 if event == sg.WINDOW_CLOSED:
                     self.stop_stream()
                     exit()
-                if event == "reload_devices" or event == "sg_hostapi":
-                    self.gui_config.sg_hostapi = values["sg_hostapi"]
-                    self.update_devices(hostapi_name=values["sg_hostapi"])
-                    if self.gui_config.sg_hostapi not in self.hostapis:
-                        self.gui_config.sg_hostapi = self.hostapis[0]
-                    self.window["sg_hostapi"].Update(values=self.hostapis)
-                    self.window["sg_hostapi"].Update(value=self.gui_config.sg_hostapi)
+                if event in ["reload_devices", "sg_input_hostapi", "sg_output_hostapi"]:
+                    self.gui_config.sg_input_hostapi = values["sg_input_hostapi"]
+                    self.gui_config.sg_output_hostapi = values["sg_output_hostapi"]
+                    self.update_devices(
+                        input_hostapi_name=values["sg_input_hostapi"],
+                        output_hostapi_name=values["sg_output_hostapi"],
+                    )
+                    if self.gui_config.sg_input_hostapi not in self.hostapis:
+                        self.gui_config.sg_input_hostapi = self.hostapis[0]
+                    if self.gui_config.sg_output_hostapi not in self.hostapis:
+                        self.gui_config.sg_output_hostapi = self.hostapis[0]
+                    self.window["sg_input_hostapi"].Update(values=self.hostapis)
+                    self.window["sg_input_hostapi"].Update(
+                        value=self.gui_config.sg_input_hostapi
+                    )
+                    self.window["sg_output_hostapi"].Update(values=self.hostapis)
+                    self.window["sg_output_hostapi"].Update(
+                        value=self.gui_config.sg_output_hostapi
+                    )
                     if (
                         self.gui_config.sg_input_device not in self.input_devices
                         and len(self.input_devices) > 0
@@ -733,7 +773,8 @@ if __name__ == "__main__":
                         settings = {
                             "reference_audio_path": values["reference_audio_path"],
                             # "index_path": values["index_path"],
-                            "sg_hostapi": values["sg_hostapi"],
+                            "sg_input_hostapi": values["sg_input_hostapi"],
+                            "sg_output_hostapi": values["sg_output_hostapi"],
                             "sg_wasapi_exclusive": values["sg_wasapi_exclusive"],
                             "sg_input_device": values["sg_input_device"],
                             "sg_output_device": values["sg_output_device"],
@@ -789,7 +830,8 @@ if __name__ == "__main__":
                 sg.popup("audio file path contains non-ascii characters")
                 return False
             self.set_devices(values["sg_input_device"], values["sg_output_device"])
-            self.gui_config.sg_hostapi = values["sg_hostapi"]
+            self.gui_config.sg_input_hostapi = values["sg_input_hostapi"]
+            self.gui_config.sg_output_hostapi = values["sg_output_hostapi"]
             self.gui_config.sg_wasapi_exclusive = values["sg_wasapi_exclusive"]
             self.gui_config.sg_input_device = values["sg_input_device"]
             self.gui_config.sg_output_device = values["sg_output_device"]
@@ -934,7 +976,10 @@ if __name__ == "__main__":
             if not flag_vc:
                 flag_vc = True
                 if (
-                    "WASAPI" in self.gui_config.sg_hostapi
+                    (
+                        "WASAPI" in self.gui_config.sg_input_hostapi
+                        or "WASAPI" in self.gui_config.sg_output_hostapi
+                    )
                     and self.gui_config.sg_wasapi_exclusive
                 ):
                     extra_settings = sd.WasapiSettings(exclusive=True)
@@ -1122,7 +1167,7 @@ if __name__ == "__main__":
 
             print(f"Infer time: {total_time:.2f}")
 
-        def update_devices(self, hostapi_name=None):
+        def update_devices(self, input_hostapi_name=None, output_hostapi_name=None):
             """Get input and output devices."""
             global flag_vc
             flag_vc = False
@@ -1140,28 +1185,31 @@ if __name__ == "__main__":
             for hostapi in hostapis:
                 for device_idx in hostapi["devices"]:
                     devices[device_idx]["hostapi_name"] = hostapi["name"]
+            self.devices = devices
             self.hostapis = [hostapi["name"] for hostapi in hostapis]
-            if hostapi_name not in self.hostapis:
-                hostapi_name = self.hostapis[0]
+            if input_hostapi_name not in self.hostapis:
+                input_hostapi_name = self.hostapis[0]
+            if output_hostapi_name not in self.hostapis:
+                output_hostapi_name = self.hostapis[0]
             self.input_devices = [
                 d["name"]
                 for d in devices
-                if d["max_input_channels"] > 0 and d["hostapi_name"] == hostapi_name
+                if d["max_input_channels"] > 0 and d["hostapi_name"] == input_hostapi_name
             ]
             self.output_devices = [
                 d["name"]
                 for d in devices
-                if d["max_output_channels"] > 0 and d["hostapi_name"] == hostapi_name
+                if d["max_output_channels"] > 0 and d["hostapi_name"] == output_hostapi_name
             ]
             self.input_devices_indices = [
                 d["index"] if "index" in d else d["name"]
                 for d in devices
-                if d["max_input_channels"] > 0 and d["hostapi_name"] == hostapi_name
+                if d["max_input_channels"] > 0 and d["hostapi_name"] == input_hostapi_name
             ]
             self.output_devices_indices = [
                 d["index"] if "index" in d else d["name"]
                 for d in devices
-                if d["max_output_channels"] > 0 and d["hostapi_name"] == hostapi_name
+                if d["max_output_channels"] > 0 and d["hostapi_name"] == output_hostapi_name
             ]
 
         def set_devices(self, input_device, output_device):
@@ -1176,9 +1224,13 @@ if __name__ == "__main__":
             printt("Output device: %s:%s", str(sd.default.device[1]), output_device)
 
         def get_device_samplerate(self):
-            return int(
+            input_samplerate = int(
                 sd.query_devices(device=sd.default.device[0])["default_samplerate"]
             )
+            output_samplerate = int(
+                sd.query_devices(device=sd.default.device[1])["default_samplerate"]
+            )
+            return output_samplerate if output_samplerate > 0 else input_samplerate
 
         def get_device_channels(self):
             max_input_channels = sd.query_devices(device=sd.default.device[0])[
