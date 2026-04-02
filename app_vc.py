@@ -378,7 +378,7 @@ def main(args):
                  title="Seed Voice Conversion",
                  examples=examples,
                  cache_examples=False,
-                 ).launch(share=args.share,)
+                 ).launch(share=args.share,server_name="0.0.0.0")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
